@@ -1,0 +1,147 @@
+body {
+  font-family: sans-serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+header,
+#container,
+footer {
+  width: 749px;
+  margin: auto;
+}
+
+header {
+  margin-bottom: 100px;
+  border-bottom: 1px solid #ccc;
+}
+
+#player {
+  position: relative;
+  top: 15px;
+}
+
+#player .wrapper {
+  margin: auto;
+  width: 749px;
+}
+
+#library {
+}
+
+#description {
+  margin-bottom: 30px;
+}
+
+#description h2 {
+  margin: 0px;
+  font-size: 30pt;
+}
+
+h2 {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+#description .artist {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+#volume {
+  float: left;
+}
+
+#seeker {
+  height: 109px;
+  margin-left: 35px;
+  width: 700px;
+  position: relative;
+}
+
+#seeker a {
+  height: 119px;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+#seeker a .slider-target {
+  display: block;
+  width: 20px;
+  height: 15px;
+  background: rgba(0, 0, 0, 0.3);
+  position: relative;
+  top: 115px;
+  left: -10px;
+  border-radius: 5px;
+  box-shadow: inset 0px 0px 4px rgba(0, 0, 0, 0.6);
+}
+
+#seeker a.fader .slider-target {
+  top: -15px;
+}
+
+#seeker .segment {
+  position: absolute;
+  top: 0px;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.3);
+  height: 109px;
+}
+
+.left-fader, .right-fader {
+  background: rgba(0, 0, 0, 0.5);
+  height: 109px;
+  width: 0px;
+}
+
+.right-fader {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+}
+
+#controls {
+  margin: 25px 0px;
+}
+
+  #controls .play, #controls .pause {
+    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.9);
+    box-shadow: inset 0px 0px 3px white;
+    cursor: pointer;
+  }
+
+
+.tracks {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.tracks thead th {
+  text-align: left;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 5px;
+  border-bottom: 10px solid white;
+}
+
+.tracks td {
+  padding: 5px 45px 5px 5px;
+}
+
+
+footer {
+  color: gray;
+  border-top: 1px solid #ccc;
+  margin-top: 100px;
+}

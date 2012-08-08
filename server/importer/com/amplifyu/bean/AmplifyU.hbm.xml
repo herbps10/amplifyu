@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.amplifyu.bean">
+	<class name="AmplifyU" table="tracks">
+		<id name="id" column="id" type="java.lang.Integer">
+			<generator class="native" />
+		</id>
+		<property name="name" type="java.lang.String">
+			<column name="name" />
+		</property>
+		<property name="artist" type="java.lang.String">
+			<column name="artist" />
+		</property>
+		<property name="duration" type="java.lang.Double">
+			<column name="duration" />
+		</property>
+		<property name="file" type="java.lang.String">
+			<column name="file" />
+		</property>
+	</class>
+</hibernate-mapping>

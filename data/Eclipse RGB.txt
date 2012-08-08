@@ -1,0 +1,43 @@
+﻿ViewType = VIEW_TYPE_NOTHING
+ViewPower = VIEW_POWER_LED30W
+ViewAnglePan = 120
+ViewAngleTilt = 90
+ViewAngleBeam = 16
+ViewReversePan = FALSE
+ViewReverseTilt = FALSE
+ViewReverseDimmer = FALSE
+ViewReverseIris = FALSE
+ViewColor = 16777215
+
+Channel = mode
+ dmx,0,49 Auto slow effect,50,99 Auto fast effect,100,149 Sound activated,150,199 Random,200,255
+
+Channel = color
+ closed,0,4 red,5,28 green,29,56 split_color,57,84 strobe,85,255
+
+Channel = strobe_effect
+ no_function,0,4 strobe,5,249 audio,250,255
+
+Channel = Laser Rotate
+ no_function,0,4 CW Rotation (slow-fast),5,127 stop,128,133 CCW Rotation (slow-fast),134,255
+
+Channel = Laser Vibrate
+ no_function,0,4 Vibrate (slow-fast),5,255
+
+Channel = Laser Twinkle
+ no_function,0,4 Flash (slow-fast),5,255
+
+Channel = red
+ Red Led,0,127 Dimming speed 0-100%,128,169 Dimming 100-0%,170,209 Brightness 100%-0%-100%,210,255 
+
+Channel = green
+ Green LED,0,127 Dimming speed 0-100%,128,169 Dimming speed 100-0%,170,209 Brightness 100%-0%-100%,210,255 
+
+Channel = blue
+
+Channel = dimmer
+
+Channel = strobe_effect
+
+Channel = LED Rotate
+

@@ -1,0 +1,47 @@
+AmplifyU Sound Controller System
+
+Designed by Herb Susmann, Summer 2012
+
+
+What it Does
+------------
+The Sound Controller System does a couple different things:
+ * Accepts commands from the iPhone or Web
+ * Controls the music playing over the loudspeakers
+ * Dynamically controls the lights in response to the music being played
+ * Manage the library of user songs
+
+
+Important Files
+---------------
+
+* server/server.rb -- the sinatra server that displays an HTML/Javascript interface for controlling the music. The iPhone also requests assets from here for display in a NSWebView component. When commands are sent from the user frontend, the sinatra server accepts them and pushes them onto a Redis backend queue.
+* player.rb -- player.rb watches over and controls the music playing over the system. Commands are accepted from the Redis queue. It also pushes information back into a Redis publish channel including such as the position of the currently playing song.
+* light_controller.rb -- listens to output from the player and controls the lights accordingly.
+
+Each component is decoupled. That is, the server will still function if the player crashes. If there is a problem, all you have to do is deal with the misbehaving component; the remaining components will continue running.
+
+Music Library
+-------------
+
+The user is given a place to store songs that they can play through the system in music-library. 
+Run update_library.rb to traverse all the files in the library and make sure the MySQL table is up to date.
+Currently, you can run echonest.rb <name of file> to download EchoNest API information about the given track and store it to the database.
+The API response is cached in the database, so if we ever need to get more information out of it we don't have to redownload from their servers.
+
+
+Libraries
+---------
+ * Open Lighting Architecture -- OLA is used for sending DMX commands over the network.
+   All of the source code is included in the ola/ folder. If you need to compile the library
+   again, check out the README in the folder. OLA has a nice web interface that you can use for debugging,
+   if you want to use it make sure you have libmicrohttp installed.
+ * wav2png -- This is a binary that is used to generate a waveform image given an MP3 file. It's called in update_library.rb
+
+
+Dependencies
+-----------
+ * MySQL
+ * Ruby
+ * Sinatra
+ * MPD -- mpd is a music player daemon that is used to actually play the music.

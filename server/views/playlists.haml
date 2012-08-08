@@ -1,0 +1,11 @@
+- @playlists.each do |playlist|
+  .playlist
+    %h2
+      = playlist.name
+
+    %ul
+      - playlist.tracks.each do |track|
+        %li
+          = track.name
+          %a{ :href => "/play_from_playlist?track=#{track.id}&playlist=#{playlist.id}" }
+            play

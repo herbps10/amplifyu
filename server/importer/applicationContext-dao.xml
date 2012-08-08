@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+<beans>
+
+	<!-- ========================= DAO DEFINITIONS ========================= -->
+	<!-- amplifyUDao -->
+	<bean id="amplifyUDao" class="com.amplifyu.dao.impl.AmplifyUDaoImpl">
+		<property name="sessionFactory">
+			<ref bean="sessionFactory" />
+		</property>
+	</bean>
+
+</beans>

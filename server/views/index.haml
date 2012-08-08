@@ -1,0 +1,46 @@
+%script{ :type => "text/javascript" }
+  = erb(:tracks, :locals => { :tracks => @tracks })
+
+
+#player
+  .wrapper
+    - if false
+      #description
+        %h2.track
+        .artist
+
+      #volume
+
+    #seeker
+      .left-fader
+      .right-fader
+
+    #controls
+      %button#control.play
+        Play
+
+#playlists
+  %h2
+    Playlists
+  
+  %ul
+    - @playlists.each do |playlist|
+      %li
+        = playlist.name
+
+  %form{ :class => 'add-playlist' }
+    %input{ :type => "text" }
+    %input{ :type => "submit", :value => "Add Playlist" }
+
+
+#library
+  %table.tracks
+    %thead
+      %tr
+        %th
+          Song
+        %th
+          Artist
+        %th
+          Genre
+        %th

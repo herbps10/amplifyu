@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+
+<beans>
+
+	<!-- ========================= SERVICE DEFINITIONS ========================= -->
+
+	<!-- userServiceTarget -->
+	<bean id="userServiceTarget"
+		class="com.amplifyu.service.impl.AmplifyUServiceImpl">
+		<property name="amplifyUDao">
+			<ref bean="amplifyUDao" />
+		</property>
+	</bean>
+	<!-- trackServiceTarget -->
+	<bean id="trackServiceTarget"
+		class="com.amplifyu.service.impl.TrackServiceImpl">
+	</bean>
+
+	<!-- ========================= TRANSACTIONAL SERVICE DEFINITIONS ========================= -->
+
+	<bean id="adminServiceProxyTemplate" abstract="true"
+		class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
+		<property name="transactionManager">
+			<ref bean="transactionManager" />
+		</property>
+		<property name="transactionAttributes">
+			<props>
+				<prop key="*">PROPAGATION_REQUIRED</prop>
+			</props>
+		</property>
+	</bean>
+
+	<!-- userService -->
+	<bean id="userService" parent="adminServiceProxyTemplate">
+		<property name="target">
+			<ref local="userServiceTarget" />
+		</property>
+	</bean>
+	<!-- trackService -->
+	<bean id="trackService" parent="adminServiceProxyTemplate">
+		<property name="target">
+			<ref local="trackServiceTarget" />
+		</property>
+	</bean>
+	
+</beans>

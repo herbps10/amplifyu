@@ -1,0 +1,16 @@
+<% tracks = @tracks if @tracks %>
+
+window.library = {
+  "tracks": [
+    <% tracks.each_with_index do |track, index| %>
+      {
+        "id": "<%= track.id %>",
+        "name": "<%= track.name %>",
+        "artist": "<%= track.artist %>",
+        "duration": "<%= track.duration %>",
+        "file": "<%= track.file %>",
+        "genre": "<%= track.genre %>",
+      }<%= "," if index < (@tracks.length - 1) %>
+    <% end %>
+  ]
+}
