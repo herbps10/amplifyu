@@ -183,7 +183,7 @@ EventMachine.run do
     end
 
     get "/hotkey/blue" do
-      
+      $redis.publish("player", "blue")     
     end
 
     get "/hotkey/green" do
@@ -191,6 +191,10 @@ EventMachine.run do
     end
 
     get "/hotkey/red" do
+      
+    end
+
+    get '/add_light_to_user' do
       
     end
 
@@ -283,6 +287,16 @@ EventMachine.run do
     # JSON REQUESTS #
     #################
     
+    get 'brand_lights.json' do
+      return { :brands => ['Chauvet', 'Test'] }.to_json
+    end
+
+    get 'lights.json' do
+      brand = params[:brand]
+
+      return { :lights => [ '6 SPOT' ] }.to_json
+    end
+
     get '/playlists.json' do 
       ActiveRecord::Base.connection_pool.with_connection do
         playlists = Playlist.all

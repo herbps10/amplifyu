@@ -120,6 +120,10 @@ $pubsub.subscribe("player", "position") do |on|
       if msg == "seek"
         section_index = 0
       end
+
+      if msg == "blue"
+        puts "Blue message"
+      end
     end
 
 
