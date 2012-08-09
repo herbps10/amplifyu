@@ -40,6 +40,8 @@ ActiveRecord::Base.establish_connection(
 )
 
 require './data/models/track.rb'
+require './data/models/playlist.rb'
+require './data/models/assignment.rb'
 
 $pipe = "/tmp/mplayerpipe"
 
@@ -116,13 +118,39 @@ while true
 
   elsif command['action'] == "load"
 
+    puts command.inspect
+
     # Load from database
     id = command['value']
     track = Track.find(id)
 
+    # See if we're playing from a playlist. If so, we might need to start at the fade in point
+    playlist_id = $redis.get("current:playlist:id")
+    fade_in_time = 0
+
+    if playlist_id
+      assignment = Assignment.where("playlist_id = #{playlist_id} AND track_id = #{track.id}").first
+
+      if assignment != nil
+        fade_in_time = assignment.fade_in if assignment.fade_in != nil
+      else
+        # We must not be in a playlist anymore, delete the thing saying we are so
+        # in the future we won't make the same mistake
+        $redis.del("current:playlist:id")
+      end
+    end
+
     # Send command to load the file.
     send_command 'delete 0'
     send_command 'add "' + track.file + '"'
+
+    if fade_in_time > 0
+      # Seek to the fade in point
+      send_command 'seek 0 ' + fade_in_time.round.to_s
+
+      $redis.publish("player", "seek")
+    end
+
     send_command 'play'
 
     # Update redis with current playing information

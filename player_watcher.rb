@@ -79,31 +79,39 @@ while true
 
   puts "Playlist: #{playlist_id}"
 
+  track_data = nil
+
+  fade_out_start = $redis.get("player:current:duration").to_f
+
   if playlist_id
     track_id = $redis.get("player:current:id")
+
     track_data = Assignment.where("track_id = #{track_id} AND playlist_id = #{playlist_id}").first
-
-    fade_out_start = track_data.fade_out
-    fade_out_start = $redis.get("player:current:duration").to_f if fade_out_start == nil
-
-    if elapsed >= (fade_out_start - 2)
-      next_track = Assignment.where("playlist_id = #{playlist_id} AND `order` > #{track_data.order}").limit(1).first
-      
-      # Check to see if we're at the end of a playlist
-      if next_track != nil
-        puts next_track.inspect
-
-        puts "Song ended"
-
-        send_command 'load', next_track.track_id
-
-        if next_track.fade_in != nil
-          send_command 'seek', next_track.fade_in
-        end
-      end
+    
+    if track_data != nil
+      fade_out_start = track_data.fade_out if track_data.fade_out != nil
     end
   end
 
+  if elapsed >= (fade_out_start - 2)
+    if track_data != nil
+      puts "Grabbing next song data"
+      next_track = Assignment.where("playlist_id = #{playlist_id} AND `order` > #{track_data.order}").order('`order` ASC').limit(1).first
+    end
+    
+    # Check to see if we're at the end of a playlist
+    if next_track != nil
+      puts next_track.inspect
+
+      puts "Song ended"
+
+      send_command 'load', next_track.track_id
+
+      if next_track.fade_in != nil
+        send_command 'seek', next_track.fade_in
+      end
+    end
+  end
   #puts elapsed.to_s
 
   sleep 0.2

@@ -4,12 +4,11 @@
 
 #player
   .wrapper
-    - if false
-      #description
-        %h2.track
-        .artist
+    #description
+      %h2.track
+      .artist
 
-      #volume
+    #volume
 
     #seeker
       .left-fader
@@ -23,10 +22,16 @@
   %h2
     Playlists
   
-  %ul
     - @playlists.each do |playlist|
-      %li
+      %h2
         = playlist.name
+
+      %ul
+      - playlist.tracks.order('`order` ASC').each do |track|
+        %li
+          = track.name
+          %a{ :href => "/play_from_playlist?track=#{track.id}&playlist=#{playlist.id}", :class => 'play_from_playlist' }
+            play
 
   %form{ :class => 'add-playlist' }
     %input{ :type => "text" }
@@ -43,4 +48,5 @@
           Artist
         %th
           Genre
+        %th
         %th

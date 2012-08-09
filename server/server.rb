@@ -49,16 +49,17 @@ end
 $clients = Clients.new
 
 
-######### # MYSQL #
+######### 
+# MYSQL #
 #########
 
 db_config = YAML::load(File.new("../data/database.yml").read)
 
 ActiveRecord::Base.establish_connection(
-  adapter: db_config['adapter'],
-  user: db_config['user'],
+  adapter:  db_config['adapter'],
+  user:     db_config['user'],
   password: db_config['password'],
-  host: db_config['host'],
+  host:     db_config['host'],
   database: db_config['database']
 )
 
@@ -97,6 +98,8 @@ def redis_get_current_command_id
 end
 
 def send_command(action, value = nil)
+  puts action + " " + value.to_s
+
   id = redis_get_current_command_id
   command = redis_command(id) 
   $redis.hset(redis_command(id), "type", "player")
@@ -130,13 +133,31 @@ EventMachine.run do
       haml :index
     end
 
+    get '/intensity_graph' do
+      track_id = params[:track].to_i
+
+      ActiveRecord::Base.connection_pool.with_connection do
+        @segments = Segment.where("track_id = #{track_id}").order('id ASC').all
+      end
+
+      erb :graph
+    end
+
     get '/add_track_to_playlist' do
       track     = params[:track].to_i
       playlist  = params[:playlist].to_i
 
       ActiveRecord::Base.connection_pool.with_connection do
-        query = ActiveRecord::Base.connection.raw_connection.prepare("INSERT INTO tracks_playlists (track_id, playlist_id) VALUES(?, ?)")
-        query.execute(track, playlist)
+        # See if there are any already there
+        tracks_in_playlist = Assignment.where("playlist_id = #{playlist}").order("`order` DESC").limit(1)
+
+        order = 0
+        if tracks_in_playlist.length > 0
+          order = tracks_in_playlist.first.order + 1
+        end
+
+        query = ActiveRecord::Base.connection.raw_connection.prepare("INSERT INTO tracks_playlists (track_id, playlist_id, `order`) VALUES(?, ?, ?)")
+        query.execute(track, playlist, order)
         query.close
 
         return "Done."
@@ -157,6 +178,22 @@ EventMachine.run do
       end
     end
 
+    get "/hotkey/turnoffeverything" do
+      
+    end
+
+    get "/hotkey/blue" do
+      
+    end
+
+    get "/hotkey/green" do
+      
+    end
+
+    get "/hotkey/red" do
+      
+    end
+
     get "/play_from_playlist" do
       track_id     = params[:track].to_i
       playlist_id  = params[:playlist].to_i
@@ -165,12 +202,29 @@ EventMachine.run do
         track     = Track.find(track_id)
         playlist  = Playlist.find(playlist_id)
 
-        $clients.broadcast({ :action => "load",
-              :id         => track.id,
-              :name       => track.name,
-              :artist     => track.artist,
-              :duration   => track.duration,
-        }.to_json)
+        data = {
+          :action     => "load",
+          :id         => track.id,
+          :name       => track.name,
+          :artist     => track.artist,
+          :duration   => track.duration,
+        }
+
+        playlist_id = $redis.get("current:playlist:id")
+
+        if playlist_id
+          assignment = Assignment.where("track_id = #{track.id} AND playlist_id = #{playlist_id}").first
+          
+          if assignment != nil
+            data['fade_in_time'] = -1
+            data['fade_in_time'] = assignment.fade_in if assignment.fade_in != nil
+
+            data['fade_out_time'] = -1
+            data['fade_out_time'] = assignment.fade_out if assignment.fade_out != nil
+          end
+        end
+
+        $clients.broadcast(data.to_json)
         
         send_command "load", track.id
 
@@ -230,20 +284,24 @@ EventMachine.run do
     #################
     
     get '/playlists.json' do 
-      playlists = Playlist.all
+      ActiveRecord::Base.connection_pool.with_connection do
+        playlists = Playlist.all
 
-      return playlists.to_json
+        return playlists.to_json
+      end
     end
 
     get '/playlist/add/:name' do
       name = params[:name]
 
-      playlist = Playlist.new
-      playlist.name = name
+      ActiveRecord::Base.connection_pool.with_connection do
+        playlist = Playlist.new
+        playlist.name = name
 
-      playlist.save
+        playlist.save
 
-      return ({ :status => "success", :id => playlist.id }.to_json)
+        return ({ :status => "success", :id => playlist.id }.to_json)
+      end
     end
 
     get "/status.json" do
@@ -368,8 +426,10 @@ EventMachine.run do
           if playlist_id
             assignment = Assignment.where("playlist_id = #{playlist_id} AND track_id = #{track.id}").first
 
-            data['fade_in_time'] = assignment.fade_in
-            data['fade_out_time'] = assignment.fade_out
+            if assignment != nil
+              data['fade_in_time'] = assignment.fade_in
+              data['fade_out_time'] = assignment.fade_out
+            end
           end
 
           ws.send(data.to_json);
@@ -423,12 +483,29 @@ EventMachine.run do
         ActiveRecord::Base.connection_pool.with_connection do
           track = Track.find(data['value'])
 
-          $clients.broadcast({ :action => "load",
+          websocket_data = { 
+            :action     => "load",
             :id         => track.id,
             :name       => track.name,
             :artist     => track.artist,
             :duration   => track.duration,
-          }.to_json)
+          }
+
+          playlist_id = $redis.get("current:playlist:id")
+
+          if playlist_id
+            assignment = Assignment.where("track_id = #{track.id} AND playlist_id = #{playlist_id}").first
+
+            if assignment != nil
+              websocket_data['fade_in_time'] = -1
+              websocket_data['fade_in_time'] = assignment.fade_in if assignment.fade_in != nil
+
+              websocket_data['fade_out_time'] = -1
+              websocket_data['fade_out_time'] = assignment.fade_out if assignment.fade_out != nil
+            end
+          end
+
+          $clients.broadcast(websocket_data.to_json)
 
           send_command "load", data['value']
         end
@@ -459,24 +536,31 @@ EventMachine.run do
       ##################
 
       elsif data["action"] == "fade_in_time" or data["action"] == "fade_out_time"
+        ActiveRecord::Base.connection_pool.with_connection do
+          # Check to see if we're in a playlist 
+          playlist_id = $redis.get("current:playlist:id").to_i
+          track_id = $redis.get("player:current:id").to_i
 
-        # Check to see if we're in a playlist 
-        playlist_id = $redis.get("current:playlist:id").to_i
-        track_id = $redis.get("player:current:id").to_i
+          if playlist_id
+            track_data = Assignment.where("track_id = #{track_id} AND playlist_id = #{playlist_id}").first
 
-        if playlist_id
-          track_data = Assignment.where("track_id = #{track_id} AND playlist_id = #{playlist_id}").first
+            if track_data
+              if data["action"] == "fade_in_time"
+                track_data.fade_in = data["value"].to_f
+              elsif data["action"] == "fade_out_time"
+                track_data.fade_out = data["value"].to_f
+              end
+            else 
+              $redis.del("current:playlist:id")
+            end
 
-          if data["action"] == "fade_in_time"
-            track_data.fade_in = data["value"].to_f
-          elsif data["action"] == "fade_out_time"
-            track_data.fade_out = data["value"].to_f
+            track_data.save
+          else
+            track_data.fade_in = -1
+            track_data.fade_out = -1
           end
-
-          track_data.save
-
+          
         end
-
       end
     end
 

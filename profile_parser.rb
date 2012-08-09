@@ -3,7 +3,10 @@ require 'mysql'
 require 'active_record'
 require 'yaml'
 
-profile = File.new('data/Eclipse RGB.txt').readlines
+light_id      = ARGV[0]
+profile_file  = ARGV[1]
+
+profile = File.new("data/#{profile_file}").readlines
 
 db_config = YAML::load(File.new("data/database.yml").read)
 
@@ -35,7 +38,7 @@ profile.each_with_index do |line, index|
       channel = DMXChannel.new(
         :channel  => channel_index,
         :name     => channels[0][0],
-        :light_id => 0
+        :light_id => light_id
       )
 
       channel.save

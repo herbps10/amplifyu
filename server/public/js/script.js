@@ -93,6 +93,9 @@ player = {
       player.current.artist = data.artist;
       player.current.duration = parseFloat(data.duration);
 
+      player.current.fade_in_time = parseFloat(data.fade_in_time)
+      player.current.fade_out_time = parseFloat(data.fade_out_time)
+
       player.onPlay();
 
       player.seeker.reset();
@@ -251,18 +254,34 @@ player = {
 
       $("#seeker").css('background', 'url(/waveforms/' + player.current.id + '.png)');
 
+      console.log(player.current.fade_out_time)
+      console.log(player.current.fade_in_time)
       if(player.current.fade_out_time) {
-        // Update the fader values
-        var right_value = (player.current.fade_out_time * 1000) / player.current.duration;
-        var right_width = 700 - (player.current.fade_out_time * 700) / player.current.duration + 10;
+        if(player.current.fade_out_time == -1) {
+          right_width = 0;
+          $("#seeker").slider('values', 2, 1000);
+        }
+        else {
+          var right_value = (player.current.fade_out_time * 1000) / player.current.duration;
+          var right_width = 700 - (player.current.fade_out_time * 700) / player.current.duration + 10;
+        }
 
+        // Update the fader values
         $(".right-fader").width(right_width + "px");
         $("#seeker").slider("values", 2, right_value);
       }
 
       if(player.current.fade_in_time) {
-        var left_value = (player.current.fade_in_time * 1000) / player.current.duration;
-        var left_width = (player.current.fade_in_time * 700) / player.current.duration - 10;
+        if(player.current.fade_in_time == -1) {
+          left_width = 0;
+          $("#seeker").slider('values', 0, 0);
+        }
+        else {
+          var left_value = (player.current.fade_in_time * 1000) / player.current.duration;
+          var left_width = (player.current.fade_in_time * 700) / player.current.duration - 10;
+
+          if(left_width < 0) left_width = 0;
+        }
 
         $(".left-fader").width(left_width + "px");
         $("#seeker").slider("values", 0, left_value);
@@ -277,7 +296,7 @@ player = {
           $("#seeker").append("<div class='segment' style='left: " + percentage + "%'></div>");
         });
       });
-    },
+    }
   },
 
   library: {
@@ -292,11 +311,24 @@ player = {
     },
 
     display: function() {
-      for(var index = 0; index < player.library.tracks.length; index++) {
-        var track = player.library.tracks[index];
+      $.getJSON("/playlists.json", function(data) {
+        var playlist_template = "<select class='playlist'>";
 
-        $(".tracks").append('<tr><td>' + track.name + '</td><td>' + track.artist + '</td><td>' + track.genre + '</td><td><a class="play" href="#" rel="' + index + '">play</a></td></tr>');
-      }
+        $.each(data, function(index, playlist) {
+          playlist_template += "<option value='" + playlist.playlist.id + "'>" + playlist.playlist.name + "</option>";
+        });
+
+        playlist_template += "</select>";
+        playlist_template += "<button class='add'>add</button>";
+
+
+        for(var index = 0; index < player.library.tracks.length; index++) {
+          var track = player.library.tracks[index];
+
+          $(".tracks").append('<tr data-id="' + track.id + '"><td>' + track.name + '</td><td>' + track.artist + '</td><td>' + track.genre + '</td><td><a class="play" href="#" rel="' + index + '">play</a></td><td>' + playlist_template + '</td></tr>');
+        }
+
+      })
     }
   },
 
@@ -461,8 +493,20 @@ $(document).ready(function() {
     }
   });
 
+  $("a.play_from_playlist").click(function() {
+    $.get($(this).attr('href'));
+    return false;
+  });
+
   $("#seeker a").append("<a class='slider-target'></a>");
 
   $("#seeker a.ui-slider-handle").filter(":first").addClass("fader");
   $("#seeker a.ui-slider-handle").filter(":last").addClass("fader");
+
+  $(".add").live('click', function() {
+    var track_id = $(this).parent().parent().attr('data-id');
+    var playlist_id  = $(this).siblings("select").children("option:selected").val();
+
+    $.get("add_track_to_playlist?track=" + track_id + "&playlist=" + playlist_id);
+  });
 });

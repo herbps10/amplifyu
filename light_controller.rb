@@ -32,10 +32,32 @@ require './data/models/track.rb'
 require './data/models/section.rb'
 require './data/models/segment.rb'
 
+$dmx_state = [0] * 512
+
 def send_dmx_command(channel, value)
-  dmx_data = (["0"] * (channel - 1)).join(',') + "," + value.to_s
-  #puts dmx_data
+  $dmx_state[channel - 1] = value
+
+  dmx_data = $dmx_state.join(',')
+
   `./ola/examples/ola_streaming_client -u 0 -d #{dmx_data}`
+end
+
+def send_dmx_batch(start, values)
+  values.each_with_index do |value, index|
+    $dmx_state[start - 1 + index] = value
+  end
+
+  dmx_data = $dmx_state.join(',')
+
+  `./ola/examples/ola_streaming_client -u 0 -d #{dmx_data}`
+end
+
+def turn_on_pod(number, value)
+  pod_base = 10
+
+  puts pod_base + number
+
+  send_dmx_command(pod_base + number, value)
 end
 
 def set_strobe_speed(speed)
@@ -96,7 +118,7 @@ $pubsub.subscribe("player", "position") do |on|
       end
 
       if msg == "seek"
-        section_idnex = 0
+        section_index = 0
       end
     end
 
@@ -113,8 +135,10 @@ $pubsub.subscribe("player", "position") do |on|
 
         puts "Changing sections"
 
-        send_dmx_command(4, 100)
+        send_dmx_batch(10, ([Proc.new { rand(255) }] * 6).map { |e| e.call })
 
+        #send_dmx_command(16, [0, 100, 200][rand(3)])
+        send_dmx_command(16, 0)
       end
 
       puts sections[section_index].end.to_s + ", " + msg.to_s
@@ -135,9 +159,9 @@ $pubsub.subscribe("player", "position") do |on|
           if(track.mode == "major")
             #puts "Since this is a major key, enable the strobes"
 
-            turn_on_strobes();
+            #turn_on_strobes();
           else 
-            turn_on_blinder();
+            #turn_on_blinder();
           end
         end
       end
