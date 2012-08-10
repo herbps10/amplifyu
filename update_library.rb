@@ -39,10 +39,10 @@ Dir.glob("music-library/**/*").each do |file|
       Mp3Info.open(file) do |mp3|
         track = Track.new
         
-        track.duration = mp3.length
-        track.name     = mp3.tag.title
-        track.artist   = mp3.tag.artist
-        track.album    = mp3.tag.album
+        track.duration = mp3.length || ''
+        track.name     = mp3.tag.title || ''
+        track.artist   = mp3.tag.artist || ''
+        track.album    = mp3.tag.album || ''
         track.file     = filename
 
         track.save

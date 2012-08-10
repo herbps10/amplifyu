@@ -130,6 +130,7 @@ EventMachine.run do
         @playlists = Playlist.all
       end
 
+      @minimal = false
       haml :index
     end
 
@@ -251,6 +252,15 @@ EventMachine.run do
         
         send_command "load", track.id
       end
+
+      ActiveRecord::Base.connection_pool.with_connection do
+        @tracks = Track.order("artist ASC").all
+        @playlists = Playlist.all
+      end
+
+      @minimal = true
+      haml :index
+
     end
 
     ########################
@@ -356,12 +366,17 @@ EventMachine.run do
         tracks.each do |track|
           first_letter = track.artist[0]
 
+          next if first_letter == '' or first_letter == nil
+
           artists[first_letter] = [] if artists[first_letter] == nil
 
           artists[first_letter].push track.artist
         end
 
         content_type :json
+
+        puts artists.inspect
+        
         return artists.to_json
       end
     end

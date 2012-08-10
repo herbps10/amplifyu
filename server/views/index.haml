@@ -2,6 +2,7 @@
   = erb(:tracks, :locals => { :tracks => @tracks })
 
 
+
 #player
   .wrapper
     #description
@@ -18,35 +19,36 @@
       %button#control.play
         Play
 
-#playlists
-  %h2
-    Playlists
-  
-    - @playlists.each do |playlist|
-      %h2
-        = playlist.name
+- if @minimal == false
+  #playlists
+    %h2
+      Playlists
+    
+      - @playlists.each do |playlist|
+        %h2
+          = playlist.name
 
-      %ul
-      - playlist.tracks.order('`order` ASC').each do |track|
-        %li
-          = track.name
-          %a{ :href => "/play_from_playlist?track=#{track.id}&playlist=#{playlist.id}", :class => 'play_from_playlist' }
-            play
+        %ul
+        - playlist.tracks.order('`order` ASC').each do |track|
+          %li
+            = track.name
+            %a{ :href => "/play_from_playlist?track=#{track.id}&playlist=#{playlist.id}", :class => 'play_from_playlist' }
+              play
 
-  %form{ :class => 'add-playlist' }
-    %input{ :type => "text" }
-    %input{ :type => "submit", :value => "Add Playlist" }
+    %form{ :class => 'add-playlist' }
+      %input{ :type => "text" }
+      %input{ :type => "submit", :value => "Add Playlist" }
 
 
-#library
-  %table.tracks
-    %thead
-      %tr
-        %th
-          Song
-        %th
-          Artist
-        %th
-          Genre
-        %th
-        %th
+  #library
+    %table.tracks
+      %thead
+        %tr
+          %th
+            Song
+          %th
+            Artist
+          %th
+            Genre
+          %th
+          %th
