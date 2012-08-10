@@ -236,11 +236,11 @@ EventMachine.run do
       end
     end
 
-    get "/play" do
-      track_id  = params[:track].to_i
+    get "/play_track" do
+      track_name  = params[:track]
 
       ActiveRecord::Base.connection_pool.with_connection do
-        track = Track.find(track_id)
+        track = Track.where("name = '#{track_name}'").first
 
         $clients.broadcast({ :action => "load",
               :id         => track.id,
@@ -249,7 +249,7 @@ EventMachine.run do
               :duration   => track.duration,
         }.to_json)
         
-        send_command "load", track_id
+        send_command "load", track.id
       end
     end
 
