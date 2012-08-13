@@ -1,15 +1,22 @@
 AmplifyU Sound Controller System
-
-Designed by Herb Susmann, Summer 2012
+Herb Susmann, Summer 2012
 
 
 What it Does
 ------------
+
 The Sound Controller System does a couple different things:
  * Accepts commands from the iPhone or Web
  * Controls the music playing over the loudspeakers
  * Dynamically controls the lights in response to the music being played
  * Manage the library of user songs
+
+
+Architecture
+------------
+The Sound Controller runs on a custom server that goes along with the rest of the audio and lighting system.
+All of the lights plug into the server, as well as the speakers. The sound controller system outputs music to the speakers and commands to the lights.
+The iPhone application then sends commands to the system. There is also a web interface that can be accessed via a computer web browser to manage the library of songs.
 
 
 Important Files

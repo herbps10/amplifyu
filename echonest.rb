@@ -17,7 +17,7 @@ require 'json'
 require 'mysql'
 require 'active_record'
 
-db_config = YAML::load(File.new("data/database.yml").read)
+db_config = YAML::load(File.new("/home/herb/git/amplifyu/system/data/database.yml").read)
 
 ActiveRecord::Base.establish_connection(
   adapter: db_config['adapter'],
@@ -27,14 +27,14 @@ ActiveRecord::Base.establish_connection(
   database: db_config['database']
 )
 
-require './data/models/track.rb'
-require './data/models/section.rb'
-require './data/models/segment.rb'
+require '/home/herb/git/amplifyu/system/data/models/track.rb'
+require '/home/herb/git/amplifyu/system/data/models/section.rb'
+require '/home/herb/git/amplifyu/system/data/models/segment.rb'
 
 $api_key = 'TCVN6FSMVZYKYAPOS'
 
 def upload_json(filename)
-  return JSON.parse(`curl -X POST -H "Content-Type:application/octet-stream" "http://developer.echonest.com/api/v4/track/upload?api_key=#{$api_key}&filetype=mp3" --data-binary "@music-library/#{filename}"`)
+  return JSON.parse(`curl -X POST -H "Content-Type:application/octet-stream" "http://developer.echonest.com/api/v4/track/upload?api_key=#{$api_key}&filetype=mp3" --data-binary "@/home/herb/git/amplifyu/system/music-library/#{filename}"`)
 end
 
 def profile_json(upload_id)
@@ -48,6 +48,7 @@ end
 
 filename = ARGV[0].gsub('./music-library/', '')
 
+puts filename
 track = Track.where("file = '#{filename}'").first
 
 # Clean out the database in case this script has been run

@@ -95,6 +95,8 @@ while true
 
   if elapsed >= (fade_out_start - 2)
     if track_data != nil
+      puts "here"
+
       puts "Grabbing next song data"
       next_track = Assignment.where("playlist_id = #{playlist_id} AND `order` > #{track_data.order}").order('`order` ASC').limit(1).first
     end
@@ -105,11 +107,22 @@ while true
 
       puts "Song ended"
 
+
       send_command 'load', next_track.track_id
 
       if next_track.fade_in != nil
         send_command 'seek', next_track.fade_in
       end
+
+      # Check to see if we need to to a crossfade effect
+      if track_data.fade_type == 1
+        # Okay here we do a record scratch effect
+        sleep 0.3
+        puts "Record scratch change"
+        system("mpg123 /home/herb/git/amplifyu/system/effects/record-scratch.mp3")
+      end
+
+
     end
   end
   #puts elapsed.to_s

@@ -49,6 +49,10 @@ player = {
         player.current.fade_in_time   = parseFloat(data.fade_in_time);
         player.current.fade_out_time  = parseFloat(data.fade_out_time);
 
+        player.current.fade_type = data.fade_type;
+
+        console.log(data);
+
         $("#volume").slider('values', data.volume);
 
         player.onPlay(); 
@@ -142,6 +146,11 @@ player = {
     else if(type == 'fade_out') {
       player.socket.send('{"action": "fade_out_time", "value": ' + value + '}');
     }
+  },
+
+  set_fade_type: function(type) {
+    console.log("Sending type: " + type);
+    player.socket.send('{"action": "fade_type", "value": ' + type + '}');
   },
 
 
@@ -256,6 +265,8 @@ player = {
 
       console.log(player.current.fade_out_time)
       console.log(player.current.fade_in_time)
+      console.log(player.current.fade_type)
+
       if(player.current.fade_out_time) {
         if(player.current.fade_out_time == -1) {
           right_width = 0;
@@ -269,7 +280,11 @@ player = {
         // Update the fader values
         $(".right-fader").width(right_width + "px");
         $("#seeker").slider("values", 2, right_value);
+
       }
+      
+      if(player.current.fade_type >= 0)
+        $(".transition").val(player.current.fade_type);
 
       if(player.current.fade_in_time) {
         if(player.current.fade_in_time == -1) {
@@ -496,6 +511,10 @@ $(document).ready(function() {
   $("a.play_from_playlist").click(function() {
     $.get($(this).attr('href'));
     return false;
+  });
+
+  $(".transition").change(function() {
+    player.set_fade_type($(this).val());
   });
 
   $("#seeker a").append("<a class='slider-target'></a>");

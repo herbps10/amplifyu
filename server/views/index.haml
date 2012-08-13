@@ -20,6 +20,17 @@
         Play
 
 - if @minimal == false
+  Transition
+  %select.transition{ :name => 'fade_type' }
+    %option{ :value => 0 } None
+    %option{ :value => 1 } Record Scratch
+
+  #upload
+    %form{ :action => '/upload', :enctype => 'multipart/form-data', :method => 'post' }
+      %input{ :type => 'file', :name => 'file' }
+
+      %input{ :type => 'submit', :value => 'Upload MP3' }
+
   #playlists
     %h2
       Playlists

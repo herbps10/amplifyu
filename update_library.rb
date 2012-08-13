@@ -17,7 +17,7 @@ require "mysql2"
 require 'yaml'
 require 'active_record'
 
-db_config = YAML::load(File.new("data/database.yml").read)
+db_config = YAML::load(File.new("/home/herb/git/amplifyu/system/data/database.yml").read)
 
 ActiveRecord::Base.establish_connection(
   adapter: db_config['adapter'],
@@ -27,7 +27,7 @@ ActiveRecord::Base.establish_connection(
   database: db_config['database'],
 )
 
-require './data/models/track.rb'
+require '/home/herb/git/amplifyu/system/data/models/track.rb'
 
 Dir.glob("music-library/**/*").each do |file|
   filename = file.split("/").at(1)

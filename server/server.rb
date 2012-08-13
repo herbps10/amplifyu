@@ -134,6 +134,20 @@ EventMachine.run do
       haml :index
     end
 
+    post '/upload' do
+      unless params[:file] && (tmpfile = params[:file][:tempfile]) && (name = params[:file][:filename])
+        return haml(:upload)
+      end
+
+      while blk = tmpfile.read(65536)
+          File.open("/home/herb/git/amplifyu/system/music-library/#{name}", "wb") { |f| f.write(tmpfile.read) }
+      end
+      
+      $redis.publish('uploads', name)
+
+     'success'
+    end
+
     get '/intensity_graph' do
       track_id = params[:track].to_i
 
@@ -151,18 +165,20 @@ EventMachine.run do
       ActiveRecord::Base.connection_pool.with_connection do
         # See if there are any already there
         tracks_in_playlist = Assignment.where("playlist_id = #{playlist}").order("`order` DESC").limit(1)
-
-        order = 0
-        if tracks_in_playlist.length > 0
-          order = tracks_in_playlist.first.order + 1
-        end
-
-        query = ActiveRecord::Base.connection.raw_connection.prepare("INSERT INTO tracks_playlists (track_id, playlist_id, `order`) VALUES(?, ?, ?)")
-        query.execute(track, playlist, order)
-        query.close
-
-        return "Done."
       end
+
+      order = 0
+      if tracks_in_playlist.length > 0
+        order = tracks_in_playlist.first.order + 1
+      end
+
+      ActiveRecord::Base.connection_pool.with_connection do
+      query = ActiveRecord::Base.connection.raw_connection.prepare("INSERT INTO tracks_playlists (track_id, playlist_id, `order`) VALUES(?, ?, ?)")
+      query.execute(track, playlist, order)
+      query.close
+      end
+
+      return "Done."
     end
 
     get '/playlists' do
@@ -242,19 +258,22 @@ EventMachine.run do
 
       ActiveRecord::Base.connection_pool.with_connection do
         track = Track.where("name = '#{track_name}'").first
-
-        $clients.broadcast({ :action => "load",
-              :id         => track.id,
-              :name       => track.name,
-              :artist     => track.artist,
-              :duration   => track.duration,
-        }.to_json)
-        
-        send_command "load", track.id
       end
+
+      $clients.broadcast({ :action => "load",
+            :id         => track.id,
+            :name       => track.name,
+            :artist     => track.artist,
+            :duration   => track.duration,
+      }.to_json)
+      
+      send_command "load", track.id
 
       ActiveRecord::Base.connection_pool.with_connection do
         @tracks = Track.order("artist ASC").all
+      end
+
+      ActiveRecord::Base.connection_pool.with_connection do
         @playlists = Playlist.all
       end
 
@@ -458,6 +477,7 @@ EventMachine.run do
             if assignment != nil
               data['fade_in_time'] = assignment.fade_in
               data['fade_out_time'] = assignment.fade_out
+              data['fade_type'] = assignment.fade_type
             end
           end
 
@@ -559,6 +579,25 @@ EventMachine.run do
 
         ws.send({ :action => "position", :value => position, :percent => percent}.to_json)
 
+      #############
+      # FADE TYPE #
+      #############
+
+      elsif data["action"] == 'fade_type'
+        puts "Fade type"
+        ActiveRecord::Base.connection_pool.with_connection do
+          playlist_id = $redis.get("current:playlist:id").to_i
+          track_id = $redis.get("player:current:id").to_i
+
+          if playlist_id
+            track_data = Assignment.where("track_id = #{track_id} AND playlist_id = #{playlist_id}").first
+
+            if track_data
+              track_data.fade_type = data["value"].to_i
+              track_data.save
+            end
+          end
+        end
 
       ##################
       # FADE IN TIMES  #
