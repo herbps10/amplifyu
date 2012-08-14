@@ -1,0 +1,16 @@
+#player
+  .wrapper
+    #description
+      %h2.track
+      .artist
+
+  #seeker
+    .left-fader
+    .right-fader
+
+  Transition
+  %select.transition{ :name => 'fade_type' }
+    %option{ :value => 0 } None
+    %option{ :value => 1 } Record Scratch
+
+

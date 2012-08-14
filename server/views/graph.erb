@@ -1,0 +1,75 @@
+<html>
+  <head>
+    <script src ='//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js'></script>
+
+    <script src="http://code.highcharts.com/highcharts.js"></script>
+    <script src="http://code.highcharts.com/modules/exporting.js"></script>
+
+
+    <script type='text/javascript'>
+    $(function () {
+      var chart;
+      $(document).ready(function() {
+          chart = new Highcharts.Chart({
+              chart: {
+                  renderTo: 'container',
+                  zoomType: 'x',
+                  spacingRight: 20
+              },
+              xAxis: {
+                  title: {
+                      text: null
+                  }
+              },
+              yAxis: {
+              },
+              tooltip: {
+                  shared: true
+              },
+              legend: {
+                  enabled: false
+              },
+              plotOptions: {
+                  area: {
+                      fillColor: {
+                          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1},
+                          stops: [
+                              [0, Highcharts.getOptions().colors[0]],
+                              [1, 'rgba(2,0,0,0)']
+                          ]
+                      },
+                      lineWidth: 1,
+                      marker: {
+                          enabled: false,
+                          states: {
+                              hover: {
+                                  enabled: true,
+                                  radius: 5
+                              }
+                          }
+                      },
+                      shadow: false,
+                      states: {
+                          hover: {
+                              lineWidth: 1
+                          }
+                      }
+                  }
+              },
+      
+              series: [{
+                  type: 'area',
+                  data: [
+                    <%= @segments.map { |segment| segment.loudness }.join(',') %>
+                  ]
+              }]
+          });
+      });
+    });
+    </script>
+  </head>
+
+  <body>
+    <div id="container" style="min-width: 400px; height: 400px; margin: 0 auto"></div>
+  </body>
+</html>
