@@ -115,11 +115,13 @@ while true
       end
 
       # Check to see if we need to to a crossfade effect
-      if track_data.fade_type == 1
-        # Okay here we do a record scratch effect
-        sleep 0.3
-        puts "Record scratch change"
-        system("mpg123 /home/herb/git/amplifyu/system/effects/record-scratch.mp3")
+      if track_data
+        if track_data.fade_type == 1
+          # Okay here we do a record scratch effect
+          sleep 0.3
+          puts "Record scratch change"
+          system("mpg123 /home/herb/git/amplifyu/system/effects/record-scratch.mp3")
+        end
       end
 
 

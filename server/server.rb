@@ -68,6 +68,11 @@ require '../data/models/assignment.rb'
 require '../data/models/playlist.rb'
 require '../data/models/section.rb'
 require '../data/models/segment.rb'
+require '../data/models/user.rb'
+require '../data/models/light.rb'
+require '../data/models/dmx_channel.rb'
+require '../data/models/dmx_range.rb'
+require '../data/models/user_light.rb'
 
 #########
 # REDIS #
@@ -125,6 +130,9 @@ EventMachine.run do
     end
 
     get '/' do
+      @index = true
+      @playlist = false
+
       ActiveRecord::Base.connection_pool.with_connection do
         @tracks = Track.order("artist ASC").all
         @playlists = Playlist.all
@@ -159,26 +167,34 @@ EventMachine.run do
     end
 
     get '/add_track_to_playlist' do
+      @index = false
+      @playlist = true
+
       track     = params[:track].to_i
       playlist  = params[:playlist].to_i
 
       ActiveRecord::Base.connection_pool.with_connection do
         # See if there are any already there
         tracks_in_playlist = Assignment.where("playlist_id = #{playlist}").order("`order` DESC").limit(1)
-      end
 
-      order = 0
-      if tracks_in_playlist.length > 0
-        order = tracks_in_playlist.first.order + 1
-      end
+        order = 0
+        if tracks_in_playlist.length > 0
+          order = tracks_in_playlist.first.order + 1
+        end
 
-      ActiveRecord::Base.connection_pool.with_connection do
-      query = ActiveRecord::Base.connection.raw_connection.prepare("INSERT INTO tracks_playlists (track_id, playlist_id, `order`) VALUES(?, ?, ?)")
-      query.execute(track, playlist, order)
-      query.close
-      end
+        query = ActiveRecord::Base.connection.raw_connection.prepare("INSERT INTO tracks_playlists (track_id, playlist_id, `order`) VALUES(?, ?, ?)")
+        query.execute(track, playlist, order)
+        query.close
 
-      return "Done."
+        haml :track
+      end
+    end
+
+    get '/track' do
+      @index = false
+      @playlist = true
+
+      haml :track
     end
 
     get '/playlists' do
@@ -196,7 +212,7 @@ EventMachine.run do
     end
 
     get "/hotkey/turnoffeverything" do
-      
+      $redis.publish("player", "turnoffeverything")     
     end
 
     get "/hotkey/blue" do
@@ -204,11 +220,11 @@ EventMachine.run do
     end
 
     get "/hotkey/green" do
-      
+      $redis.publish("player", "green")     
     end
 
     get "/hotkey/red" do
-      
+      $redis.publish("player", "red")     
     end
 
     get '/add_light_to_user' do
@@ -254,31 +270,30 @@ EventMachine.run do
     end
 
     get "/play_track" do
+      @index = true
+      @playlist = false
+
       track_name  = params[:track]
 
       ActiveRecord::Base.connection_pool.with_connection do
         track = Track.where("name = '#{track_name}'").first
-      end
 
-      $clients.broadcast({ :action => "load",
-            :id         => track.id,
-            :name       => track.name,
-            :artist     => track.artist,
-            :duration   => track.duration,
-      }.to_json)
-      
-      send_command "load", track.id
+        $clients.broadcast({ :action => "load",
+              :id         => track.id,
+              :name       => track.name,
+              :artist     => track.artist,
+              :duration   => track.duration,
+        }.to_json)
+        
+        send_command "load", track.id
 
-      ActiveRecord::Base.connection_pool.with_connection do
         @tracks = Track.order("artist ASC").all
-      end
 
-      ActiveRecord::Base.connection_pool.with_connection do
         @playlists = Playlist.all
-      end
 
-      @minimal = true
-      haml :index
+        @minimal = true
+        haml :index
+      end
 
     end
 
@@ -316,11 +331,45 @@ EventMachine.run do
     # JSON REQUESTS #
     #################
     
-    get 'brand_lights.json' do
+    get '/track_playlist_info.json' do
+      track_id = params[:track]
+      playlist_id = params[:playlist]
+
+      ActiveRecord::Base.connection_pool.with_connection do
+        track = Track.find(track_id)
+        track_playlist = Assignment.where("playlist_id = #{playlist_id} AND track_id = #{track_id}").first
+
+        info = { 
+          :track => {
+            :id             => track.id,
+            :name           => track.name,
+            :duration       => track.duration,
+            :artist         => track.artist,
+            :fade_in_time   => track_playlist.fade_in,
+            :fade_out_time  => track_playlist.fade_out,
+            :fade_type      => track_playlist.fade_type
+          }
+        }
+
+        return info.to_json
+      end
+    end
+
+    get '/user_lights.json' do
+      user_id = params[:user]
+
+      user_lights = UserLight.where("user_id = #{user_id}").all
+
+      lights = user_lights.map { |l| { id: l.light.id, name: l.light.name, brand: l.light.brand } }
+      
+      return lights.to_json
+    end
+
+    get '/brand_lights.json' do
       return { :brands => ['Chauvet', 'Test'] }.to_json
     end
 
-    get 'lights.json' do
+    get '/lights.json' do
       brand = params[:brand]
 
       return { :lights => [ '6 SPOT' ] }.to_json
@@ -412,6 +461,7 @@ EventMachine.run do
 
           alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
 
+          if false
           alphabetized[first_letter].push({ 
             :name => track.name, 
             :id => track.id, 
@@ -419,6 +469,9 @@ EventMachine.run do
             :artist => track.artist, 
             :album => track.album
           })
+          end
+
+          alphabetized[first_letter].push track.name
         end
 
         content_type :json
@@ -589,6 +642,9 @@ EventMachine.run do
           playlist_id = $redis.get("current:playlist:id").to_i
           track_id = $redis.get("player:current:id").to_i
 
+          playlist_id = data['playlist'].to_i if data['playlist']
+          track_id = data['track'].to_i if data['track']
+
           if playlist_id
             track_data = Assignment.where("track_id = #{track_id} AND playlist_id = #{playlist_id}").first
 
@@ -609,6 +665,9 @@ EventMachine.run do
           playlist_id = $redis.get("current:playlist:id").to_i
           track_id = $redis.get("player:current:id").to_i
 
+          playlist_id = data["playlist"].to_i if data["playlist"]
+          track_id = data["track"].to_i if data["track"]
+
           if playlist_id
             track_data = Assignment.where("track_id = #{track_id} AND playlist_id = #{playlist_id}").first
 
@@ -627,7 +686,6 @@ EventMachine.run do
             track_data.fade_in = -1
             track_data.fade_out = -1
           end
-          
         end
       end
     end

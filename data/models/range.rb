@@ -1,3 +1,3 @@
-class DMXRange < ActiveRecord::Base
+class DmxRange < ActiveRecord::Base
   
 end
