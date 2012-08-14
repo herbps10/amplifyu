@@ -13,6 +13,7 @@ require 'redis'
 require 'yaml'
 require 'mysql'
 require 'active_record'
+require 'thread'
 
 #########
 # MYSQL #
@@ -36,21 +37,7 @@ require './data/models/dmx_channel.rb'
 require './data/models/dmx_range.rb'
 require './data/models/light.rb'
 
-
-$dmx_state = [0] * 512
-
-def send_dmx_command(channel, value)
-  $dmx_state[channel - 1] = value
-  
-  send_dmx_data
-end
-
-def send_dmx_data
-  dmx_data = $dmx_state.join(',')
-
-  `./ola/examples/ola_streaming_client -u 0 -d #{dmx_data}`
-end
-
+$streamer = IO.popen('/home/herb/git/amplifyu/system/ola/examples/ola_streaming_client', 'w')
 
 class LightControl
   def initialize(channel_start, light)
@@ -76,14 +63,19 @@ class LightControl
     end
   end
 
-  def send_command_wait(name, index, value)
-    prepare_dmx(name, index, value)
-  end
-
   def send_command(name, index, value)
-    send_command_wait(name, index, value)
 
-    send_dmx_data
+    channel = @light.dmx_channels.where("name = '#{name}'").at(index)
+
+    if value.is_a? String
+      range = channel.dmx_ranges.where("name = '#{value}'").first
+
+      $streamer.write((@channel_start + channel.channel - 1).to_s + "\n")
+      $streamer.write((range.start + 1).to_s + "\n")
+    else
+      $streamer.write((@channel_start + channel.channel - 1).to_s + "\n")
+      $streamer.write(value.to_s + "\n")
+    end
   end
 end
 
@@ -101,79 +93,30 @@ end
 
 $lights = get_user_lights(1)
 
-puts $lights[3].inspect
 
-$lights[3].send_command_wait("strobe", 0, "shutter open")
-#$lights[3].send_command_wait("yoke course", 0, 50)
-$lights[3].send_command_wait("color", 0, "color 7")
-#$lights[3].send_command_wait("gobo rotation", 0, 250)
+$lights[3].send_command("strobe", 0, "shutter open")
+#$lights[3].send_command("yoke course", 0, 50)
+$lights[3].send_command("color", 0, "color 7")
+#$lights[3].send_command("gobo rotation", 0, 250)
 
-send_dmx_data
+$lights[3].send_command("gobos", 0, "gobo 5")
 
-$lights[3].send_command_wait("gobos", 0, "gobo 5")
-
-send_dmx_data
-
-#exit
+$lights[0].send_command("pod", 0, "blue")
 
 if false
-  send_dmx_data
   [1, 2].each do |light|
     ["red", "green", "blue"].each do |color|
       [0, 1, 2].each do |index|
-        #$lights[light].send_command_wait(color, index, rand() * 255)
-        $lights[light].send_command_wait("red", index, index * 100)
+        #$lights[light].send_command(color, index, rand() * 255)
+        $lights[light].send_command("red", index, index * 100)
       end
-      send_dmx_data
-      sleep 1
+      sleep rand() * 2.0
     end
   end
 end
 
-def send_dmx_batch(start, values)
-  values.each_with_index do |value, index|
-    $dmx_state[start - 1 + index] = value
-  end
-
-  dmx_data = $dmx_state.join(',')
-
-  `./ola/examples/ola_streaming_client -u 0 -d #{dmx_data}`
-end
-
-def turn_on_pod(number, value)
-  pod_base = 10
-
-  puts pod_base + number
-
-  send_dmx_command(pod_base + number, value)
-end
-
-def set_strobe_speed(speed)
-
-end
-
-def set_strobe_intensity(brightness)
-  send_dmx_command(5, brightness)
-end
-
-def turn_on_blinder
-  send_dmx_command(4, 100)
-  send_dmx_command(5, 0)
-end
-
-def turn_off_blinder
-  send_dmx_command(4, 0)
-  send_dmx_command(5, 0)
-end
-
-def turn_on_strobes
-  turn_off_blinder
-  set_strobe_speed(100)
-  set_strobe_intensity(100)
-end
-
 def get_track_sections(track)
-  return track.sections.where('confidence > 0.3').order('id ASC').all
+  return track.sections.where('confidence > 0.0').order('id ASC').all
 end
 
 def get_avg_loudness(segment)
@@ -185,7 +128,7 @@ def set_all_to_color(color)
   (["red", "green", "blue"] - [color]).each do |color|
     [1,2].each do |light|
       [0,1,2].each do |index|
-        $lights[light].send_command_wait(color, index, 0)
+        $lights[light].send_command(color, index, 0)
       end
     end
   end
@@ -193,19 +136,28 @@ def set_all_to_color(color)
 
   [1, 2].each do |light|
     [0, 1, 2].each do |index|
-      $lights[light].send_command_wait(color, index, 255)
+      $lights[light].send_command(color, index, 255)
     end
   end
   
   if color == "blue"
-    $lights[3].send_command_wait("color", 0, "color 2")
+    $lights[3].send_command("color", 0, "color 2")
   elsif color == "green"
-    $lights[3].send_command_wait("color", 0, "color 5")
+    $lights[3].send_command("color", 0, "color 5")
   elsif color == "red"
-    $lights[3].send_command_wait("color", 0, "color 7")
+    $lights[3].send_command("color", 0, "color 7")
   end
 
-  send_dmx_data
+end
+
+def randomized_yoke_positions
+  positions = []
+
+  positions[0] = [rand() * 255, rand() * 255]
+  positions[1] = [positions[0][0] - rand() * 100, positions[0][1] - rand() * 100]
+  positions[2] = [positions[0][0] + rand() * 100, positions[0][1] + rand() * 100]
+
+  positions
 end
 
 $pubsub = Redis.new
@@ -219,8 +171,15 @@ sections = get_track_sections(track)
 
 section_index = 0
 
+yoke_positions = randomized_yoke_positions
+puts yoke_positions.inspect
+yoke_index = 0
+
+beat_thread = nil
+
 $pubsub.subscribe("player", "position") do |on|
   on.message do |channel, msg|
+    return if sections == nil
 
     if channel == "player"
       if msg == "load"
@@ -230,6 +189,41 @@ $pubsub.subscribe("player", "position") do |on|
         sections = get_track_sections(track)
 
         section_index = 0
+
+        beat_thread.kill unless beat_thread == nil
+        beat_thread = Thread.new(track.tempo.to_f) do |bpm|
+          pause = 1.0 / (bpm / 60.0)
+          index = 0
+
+          while true
+            time_start = Time.now
+
+            if index >= 0 and index <= 5
+              puts "index: #{index}"
+              $lights[0].send_command("pod", index, ["red", "green", "blue"].at(rand() * 3))
+            end
+
+            
+            if index == 6
+              5.times do |i|
+                puts i
+                $lights[0].send_command("pod", i, "no_function")
+              end
+
+            end
+
+            index = (index + 1) % 7
+            
+            until (Time.now() - time_start) >= pause
+            end
+          end
+        end
+
+
+      end
+
+      if msg == "ended"
+        beat_thread.kill unless beat_thread == nil
       end
 
       if msg == "seek"
@@ -253,8 +247,6 @@ $pubsub.subscribe("player", "position") do |on|
       end
 
       if msg == "turnoffeverything"
-        $dmx_state = [0] * 255
-        send_dmx_data
       end
     end
 
@@ -263,6 +255,12 @@ $pubsub.subscribe("player", "position") do |on|
       next_start = track.duration
       next_start = sections[section_index + 1].start.to_f if section_index + 1 < sections.length
 
+      $lights[3].send_command("base course", 0, yoke_positions[yoke_index][0])
+      $lights[3].send_command("yoke course", 0, yoke_positions[yoke_index][1])
+
+      
+      yoke_index = (yoke_index + 1) % 3
+      
       until sections[section_index].start.to_f <= msg.to_f && next_start >= msg.to_f
         break if section_index + 1 == sections.length
         section_index += 1
@@ -271,16 +269,97 @@ $pubsub.subscribe("player", "position") do |on|
 
         puts "Changing sections"
 
-        #send_dmx_batch(10, ([Proc.new { rand(255) }] * 6).map { |e| e.call })
+        yoke_positions = randomized_yoke_positions
 
-        #send_dmx_command(16, [0, 100, 200][rand(3)])
-        #send_dmx_command(16, 0)
-        [1, 2].each do |light|
-          ["red", "green", "blue"].each do |color|
-            [0, 1, 2].each do |index|
-              $lights[light].send_command_wait(color, index, rand() * 255)
+        # Change the yoke color
+        $lights[3].send_command("color", 0, ["color 1", "color 2", "color 3", "color 4", "color 5", "color 6", "color 7"].at(rand() * 7))
+
+        # Change the iSpot gobo
+        $lights[3].send_command("gobos", 0, ["gobo 1", "gobo 2", "gobo 3", "gobo 4", "gobo 5", "gobo 6"].at(rand() * 6))
+
+
+        if section_index < sections.length - 1
+          colors = {}
+          if track.mode == "major"
+            puts 'Major key'
+            colors = {
+              "red"   => rand() * 255,
+              "green" => rand() * 255, 
+              "blue"  => rand() * 255 
+            }
+          else
+            puts 'Minor key'
+
+            colors = {
+              "red"   => 255,
+              "green" => rand() * 100,
+              "blue"  => rand() * 100,
+            }
+          end
+          
+          if get_avg_loudness(sections[section_index]) > -15
+            if get_avg_loudness(sections[section_index + 1]) > get_avg_loudness(sections[section_index])
+              puts "Louder section"
+
+              # This section is louder than the previous section
+              [1, 2].each do |light|
+                Thread.new(light) do |light|
+
+                  brightness = 0
+
+                  until colors["red"] * brightness >= colors["red"] and colors["green"] * brightness >= colors["green"] and colors["blue"] * brightness >= colors["blue"]
+                    ["red", "green", "blue"].each do |color|
+                      [0, 1, 2].each do |index|
+                        $lights[light].send_command(color, index, colors[color] * brightness)
+                      end
+                    end
+
+
+                    brightness += 0.1
+
+                  end
+
+                end
+
+                
+              end
+
+
+              # Have the iSpot strobe for a second
+              Thread.new do
+                puts "Strobing the iSpot"
+                $lights[3].send_command("strobe", 0, 120) # enable the strobe
+                sleep 2
+                $lights[3].send_command("strobe", 0, "shutter open")
+              end
+
+            else
+              # This section is quieter than the previous section
+              puts "Quieter section"
+
+              [1, 2].each do |light|
+                
+                Thread.new(light) do |light|
+                  brightness = 255
+                  until brightness <= 10
+                    [0, 1, 2].each do |index|
+                      $lights[light].send_command("red", index, brightness)
+                      $lights[light].send_command("green", index, brightness)
+                      $lights[light].send_command("blue", index, brightness)
+                    end
+                    
+
+                    brightness -= 10
+
+                  end
+                end
+
+              end
+
             end
-            send_dmx_data
+          else
+            
+                        
           end
         end
 
@@ -289,14 +368,44 @@ $pubsub.subscribe("player", "position") do |on|
 
       puts sections[section_index].end.to_s + ", " + msg.to_s
       puts section_index
-      
+
+      puts 'Loudness ' + get_avg_loudness(sections[section_index]).to_s
+
+      if get_avg_loudness(sections[section_index]) < -14
+
+        # Turn off all the lights
+
+        puts 'Turning off all the lights'
+
+        [1, 2].each do |light|
+          [0, 1, 2].each do |index|
+            $lights[light].send_command("red", index, 0)
+            $lights[light].send_command("green", index, 0)
+            $lights[light].send_command("blue", index, 0)
+          end
+        end
+
+
+        $lights[3].send_command("strobe", 0, "shutter closed")
+        yoke_positions = [[120, 50]] * 3
+
+
+     elsif get_avg_loudness(sections[section_index]) < -10.5
+      yoke_positions = [[120, 50]] * 3
+
+      $lights[3].send_command("strobe", 0, "shutter open")
+     end
+
+
       ##
       ## If this section is louder than the next section
       ##
       if section_index < sections.length - 1
         if get_avg_loudness(sections[section_index]) > get_avg_loudness(sections[section_index + 1])
-          turn_off_blinder();
+        else
+          
         end
+
 
         ##
         ## If this section is quieter than the next section

@@ -51,10 +51,6 @@ filename = ARGV[0].gsub('./music-library/', '')
 puts filename
 track = Track.where("file = '#{filename}'").first
 
-# Clean out the database in case this script has been run
-# before on this track
-Segment.delete_all("track_id = #{track.id}")
-Section.delete_all("track_id = #{track.id}")
 
 #
 # Only download from the Echonest servers if we haven't cached this track's
@@ -81,10 +77,16 @@ if(track.echonest_detailed_json == nil or track.echonest_detailed_json == '')
   track.echonest_detailed_json = raw_song_data
 
   track.save
+else
+
 end
 
 song_data = JSON.parse(track.echonest_detailed_json)
 
+# Clean out the database in case this script has been run
+# before on this track
+Segment.delete_all("track_id = #{track.id}")
+Section.delete_all("track_id = #{track.id}")
 
 #
 # Save track information

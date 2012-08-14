@@ -6,7 +6,7 @@
 // herbps10@gmail.com
 //
 
-var ip = "192.168.1.4"
+var ip = "192.168.1.2"
 
 $(document).ready(function() {
   player.socket = new WebSocket("ws://" + ip + ":5000");

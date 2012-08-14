@@ -24,7 +24,7 @@ require 'yaml'
 require 'thin'
 require 'em-websocket'
 
-$ip = "192.168.1.4"
+$ip = "192.168.1.2"
 
 class Clients
   def initialize
@@ -60,7 +60,8 @@ ActiveRecord::Base.establish_connection(
   user:     db_config['user'],
   password: db_config['password'],
   host:     db_config['host'],
-  database: db_config['database']
+  database: db_config['database'],
+  pool:     db_config['pool'].to_i
 )
 
 require '../data/models/track.rb'
@@ -135,6 +136,9 @@ EventMachine.run do
 
       ActiveRecord::Base.connection_pool.with_connection do
         @tracks = Track.order("artist ASC").all
+      end
+
+      ActiveRecord::Base.connection_pool.with_connection do
         @playlists = Playlist.all
       end
 
@@ -173,21 +177,24 @@ EventMachine.run do
       track     = params[:track].to_i
       playlist  = params[:playlist].to_i
 
+      tracks_in_playlist = nil
       ActiveRecord::Base.connection_pool.with_connection do
         # See if there are any already there
         tracks_in_playlist = Assignment.where("playlist_id = #{playlist}").order("`order` DESC").limit(1)
+      end
 
-        order = 0
-        if tracks_in_playlist.length > 0
-          order = tracks_in_playlist.first.order + 1
-        end
+      order = 0
+      if tracks_in_playlist.length > 0
+        order = tracks_in_playlist.first.order + 1
+      end
 
+      ActiveRecord::Base.connection_pool.with_connection do
         query = ActiveRecord::Base.connection.raw_connection.prepare("INSERT INTO tracks_playlists (track_id, playlist_id, `order`) VALUES(?, ?, ?)")
         query.execute(track, playlist, order)
         query.close
-
-        haml :track
       end
+
+      haml :track
     end
 
     get '/track' do
@@ -235,38 +242,46 @@ EventMachine.run do
       track_id     = params[:track].to_i
       playlist_id  = params[:playlist].to_i
 
+      track = nil
       ActiveRecord::Base.connection_pool.with_connection do
         track     = Track.find(track_id)
-        playlist  = Playlist.find(playlist_id)
-
-        data = {
-          :action     => "load",
-          :id         => track.id,
-          :name       => track.name,
-          :artist     => track.artist,
-          :duration   => track.duration,
-        }
-
-        playlist_id = $redis.get("current:playlist:id")
-
-        if playlist_id
-          assignment = Assignment.where("track_id = #{track.id} AND playlist_id = #{playlist_id}").first
-          
-          if assignment != nil
-            data['fade_in_time'] = -1
-            data['fade_in_time'] = assignment.fade_in if assignment.fade_in != nil
-
-            data['fade_out_time'] = -1
-            data['fade_out_time'] = assignment.fade_out if assignment.fade_out != nil
-          end
-        end
-
-        $clients.broadcast(data.to_json)
-        
-        send_command "load", track.id
-
-        $redis.set("current:playlist:id", playlist.id)
       end
+
+      playlist = nil
+      ActiveRecord::Base.connection_pool.with_connection do
+        playlist  = Playlist.find(playlist_id)
+      end
+
+      data = {
+        :action     => "load",
+        :id         => track.id,
+        :name       => track.name,
+        :artist     => track.artist,
+        :duration   => track.duration,
+      }
+
+      playlist_id = $redis.get("current:playlist:id")
+
+      if playlist_id
+        assignment = nil
+        ActiveRecord::Base.connection_pool.with_connection do
+          assignment = Assignment.where("track_id = #{track.id} AND playlist_id = #{playlist_id}").first
+        end
+        
+        if assignment != nil
+          data['fade_in_time'] = -1
+          data['fade_in_time'] = assignment.fade_in if assignment.fade_in != nil
+
+          data['fade_out_time'] = -1
+          data['fade_out_time'] = assignment.fade_out if assignment.fade_out != nil
+        end
+      end
+
+      $clients.broadcast(data.to_json)
+      
+      send_command "load", track.id
+
+      $redis.set("current:playlist:id", playlist.id)
     end
 
     get "/play_track" do
@@ -275,25 +290,30 @@ EventMachine.run do
 
       track_name  = params[:track]
 
+      track = nil
       ActiveRecord::Base.connection_pool.with_connection do
         track = Track.where("name = '#{track_name}'").first
-
-        $clients.broadcast({ :action => "load",
-              :id         => track.id,
-              :name       => track.name,
-              :artist     => track.artist,
-              :duration   => track.duration,
-        }.to_json)
-        
-        send_command "load", track.id
-
-        @tracks = Track.order("artist ASC").all
-
-        @playlists = Playlist.all
-
-        @minimal = true
-        haml :index
       end
+
+      $clients.broadcast({ :action => "load",
+            :id         => track.id,
+            :name       => track.name,
+            :artist     => track.artist,
+            :duration   => track.duration,
+      }.to_json)
+      
+      send_command "load", track.id
+
+      ActiveRecord::Base.connection_pool.with_connection do
+        @tracks = Track.order("artist ASC").all
+      end
+      
+      ActiveRecord::Base.connection_pool.with_connection do
+        @playlists = Playlist.all
+      end
+
+      @minimal = true
+      haml :index
 
     end
 
@@ -335,30 +355,38 @@ EventMachine.run do
       track_id = params[:track]
       playlist_id = params[:playlist]
 
+      track = nil
       ActiveRecord::Base.connection_pool.with_connection do
         track = Track.find(track_id)
-        track_playlist = Assignment.where("playlist_id = #{playlist_id} AND track_id = #{track_id}").first
-
-        info = { 
-          :track => {
-            :id             => track.id,
-            :name           => track.name,
-            :duration       => track.duration,
-            :artist         => track.artist,
-            :fade_in_time   => track_playlist.fade_in,
-            :fade_out_time  => track_playlist.fade_out,
-            :fade_type      => track_playlist.fade_type
-          }
-        }
-
-        return info.to_json
       end
+
+      track_playlist = nil
+      ActiveRecord::Base.connection_pool.with_connection do
+        track_playlist = Assignment.where("playlist_id = #{playlist_id} AND track_id = #{track_id}").first
+      end
+
+      info = { 
+        :track => {
+          :id             => track.id,
+          :name           => track.name,
+          :duration       => track.duration,
+          :artist         => track.artist,
+          :fade_in_time   => track_playlist.fade_in,
+          :fade_out_time  => track_playlist.fade_out,
+          :fade_type      => track_playlist.fade_type
+        }
+      }
+
+      return info.to_json
     end
 
     get '/user_lights.json' do
       user_id = params[:user]
 
-      user_lights = UserLight.where("user_id = #{user_id}").all
+      user_lights = nil
+      ActiveRecord::Base.connection_pool.with_connection do
+        user_lights = UserLight.where("user_id = #{user_id}").all
+      end
 
       lights = user_lights.map { |l| { id: l.light.id, name: l.light.name, brand: l.light.brand } }
       
@@ -481,17 +509,52 @@ EventMachine.run do
 
     get '/albums.json' do
       ActiveRecord::Base.connection_pool.with_connection do
-        @tracks = Track.order('album ASC').all
+        @tracks = Track.group('album').order('album DESC').all
+
+        alphabetized = {}
+
+        @tracks.each do |track|
+          first_letter = track.album[0]
+
+
+          alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
+
+          alphabetized[first_letter].push track.album
+
+        end
 
         content_type :json
-        return @tracks.to_json
+        return alphabetized.to_json
+
       end
     end
+
+    get '/songs.json' do
+      ActiveRecord::Base.connection_pool.with_connection do
+        @tracks = Track.order('name ASC').all
+
+        alphabetized = {}
+
+        @tracks.each do |track|
+          puts track.inspect
+          first_letter = track.name[0]
+
+          alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
+
+          alphabetized[first_letter].push track.name
+
+        end
+        
+        content_type :json
+        return alphabetized.to_json
+      end
+    end
+    
 
     get '/sections.json' do
       track_id = params[:track_id]
       ActiveRecord::Base.connection_pool.with_connection do
-        @sections = Section.order('id ASC').where("track_id = #{track_id}").where('confidence > 0.3').all
+        @sections = Section.order('id ASC').where("track_id = #{track_id}").where('confidence > 0.0').all
 
         content_type :json
         return @sections.to_json
@@ -609,6 +672,8 @@ EventMachine.run do
 
           $clients.broadcast(websocket_data.to_json)
 
+          puts "Recieved load command"
+
           send_command "load", data['value']
         end
 
@@ -677,11 +742,12 @@ EventMachine.run do
               elsif data["action"] == "fade_out_time"
                 track_data.fade_out = data["value"].to_f
               end
+
+              track_data.save
             else 
               $redis.del("current:playlist:id")
             end
 
-            track_data.save
           else
             track_data.fade_in = -1
             track_data.fade_out = -1
