@@ -235,7 +235,24 @@ EventMachine.run do
     end
 
     get '/add_light_to_user' do
+      brand = params["brand"].gsub("_", " ")
+      name = params["name"].gsub("_", " ")
+      user = params["user"].to_i
+
+      top_light = UserLight.where("user_id = #{user}").order("start_dmx_channel DESC").limit(1).first
+      top_light_channels = DmxChannel.where("light_id = #{top_light.id}").all.length
       
+      light = Light.where("brand = '#{brand}' AND name = '#{name}'").first
+
+      user_light = UserLight.new
+      user_light.light_id = light.id
+      user_light.user_id = user
+      user_light.start_dmx_channel = top_light.start_dmx_channel + top_light_channels + 1
+
+      user_light.save
+
+      #return [{ :channel => user_light.start_dmx_channel }].to_json
+      return (top_light.start_dmx_channel + top_light_channels + 1).to_s
     end
 
     get "/play_from_playlist" do
@@ -310,6 +327,7 @@ EventMachine.run do
       
       ActiveRecord::Base.connection_pool.with_connection do
         @playlists = Playlist.all
+
       end
 
       @minimal = true
@@ -407,7 +425,17 @@ EventMachine.run do
       ActiveRecord::Base.connection_pool.with_connection do
         playlists = Playlist.all
 
-        return playlists.to_json
+        alphabetized = {}
+        playlists.each do |playlist|
+          next if playlist.name == nil
+
+          first_letter = playlist.name[0]
+
+          alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
+          alphabetized[first_letter].push playlist.name
+        end
+
+        return alphabetized.to_json
       end
     end
 
@@ -485,7 +513,7 @@ EventMachine.run do
         tracks = Track.where("artist = '#{artist}'").order('name ASC').all
 
         tracks.each do |track|
-          first_letter = track.name[0]
+          first_letter = track.name[0].downcase
 
           alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
 
@@ -507,6 +535,47 @@ EventMachine.run do
       end 
     end
 
+    get '/album_tracks.json' do
+      album = params['album']
+      ActiveRecord::Base.connection_pool.with_connection do
+        alphabetized = {}
+
+        tracks = Track.where("album = '#{album}'").order('name ASC').all
+
+        tracks.each do |track|
+          first_letter = track.name[0].downcase
+
+          alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
+          alphabetized[first_letter].push track.name
+        end
+
+        content_type :json
+        return alphabetized.to_json
+      end 
+    end
+
+    get '/playlist_tracks.json' do
+      playlist = params['playlist']
+
+      puts "Playlist #{playlist}"
+
+      ActiveRecord::Base.connection_pool.with_connection do
+        alphabetized = {}
+
+        playlist = Playlist.where("name = '#{playlist}'").first
+
+        assignments = Assignment.where("playlist_id = '#{playlist.id}'").all
+
+        tracks = []
+        assignments.each do |assignment|
+          tracks.push assignment.track.name
+        end
+
+        content_type :json
+        return tracks.to_json
+      end
+    end
+
     get '/albums.json' do
       ActiveRecord::Base.connection_pool.with_connection do
         @tracks = Track.group('album').order('album DESC').all
@@ -514,8 +583,12 @@ EventMachine.run do
         alphabetized = {}
 
         @tracks.each do |track|
-          first_letter = track.album[0]
+          next if track.album == nil
+          next if track.album[0] == nil
 
+          first_letter = track.album[0].downcase
+          
+          next if first_letter == nil or first_letter == '' or first_letter.chomp == ''
 
           alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
 
@@ -525,7 +598,6 @@ EventMachine.run do
 
         content_type :json
         return alphabetized.to_json
-
       end
     end
 
@@ -536,8 +608,10 @@ EventMachine.run do
         alphabetized = {}
 
         @tracks.each do |track|
-          puts track.inspect
+          nexst if track.name == nil
           first_letter = track.name[0]
+
+          next if first_letter.nil? or first_letter == '' or first_letter.chomp == ''
 
           alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
 
