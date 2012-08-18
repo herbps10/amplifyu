@@ -18,8 +18,12 @@
   %footer
     AmplifyU 2012
 
-%script{ :src => '//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js' }
-%script{ :type => 'text/javascript' } window.jQuery || document.write('<script src="js/libs/jquery-1.7.1.min.js"><\/script>')</script>
+
+%script{ :src => "js/jquery.min.js", :type => "text/javascript" }
+
+- if false
+  %script{ :src => '//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js' }
+  %script{ :type => 'text/javascript' } window.jQuery || document.write('<script src="js/libs/jquery-1.7.1.min.js"><\/script>')</script>
 %script{ :src => '/js/jquery-ui-1.8.21.custom.min.js', :type => 'text/javascript' }
 %script{ :src => '/js/jquery.touch.punch.js', :type => 'text/javascript' }
 

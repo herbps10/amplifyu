@@ -50,5 +50,54 @@ Dependencies
 -----------
  * MySQL
  * Ruby
+ * Redis
  * Sinatra
  * MPD -- mpd is a music player daemon that is used to actually play the music.
+
+
+
+How to Run the System
+---------------------
+Make sure you have MySQL running. You can import a starter database template with some data preloaded from database_scheme.sql.
+
+First, start redis:
+$ redis-server
+
+Next, boot up the server:
+$ cd server
+$ ruby server.rb
+
+The server will listen on http://localhost:4000. You can control everything through that interface.
+
+(Optional step) to allow music uploads from the web interface, start the upload watcher:
+$ cd ..
+$ ruby upload_watcher.rb
+
+Now we can start up the player
+$ ruby player.rb
+
+And we can start up the player watcher (this is what keeps track of what the player is doing)
+$ ruby player_watcher.rb
+
+Then boot up the light controller:
+
+$ ruby light_controller.rb
+
+And you should be all set.
+
+How to Keep the Library Up to Date
+----------------------------------
+
+If you add any music through the web interface, it should automatically update the database and download the echonest data.
+
+Alternatively, you can do it manually:
+
+- Put new music into the music-library folder
+
+- Update the mysql with
+$ ruby update_library.sh
+
+- Update the echonest data with
+$ ./download_all_echonest.sh
+
+And you should be good to go. Downloading echonest data takes a while, so you have to let it do its thing for a while.

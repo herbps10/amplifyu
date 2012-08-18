@@ -148,7 +148,7 @@ $(document).ready(function() {
     var track_id = $(this).parent().parent().attr('data-id');
     var playlist_id  = $(this).siblings("select").children("option:selected").val();
 
-    //$.get("add_track_to_playlist?track=" + track_id + "&playlist=" + playlist_id);
-    window.location = "/add_track_to_playlist?track=" + track_id + "&playlist=" + playlist_id;
+    $.get("add_track_to_playlist?track=" + track_id + "&playlist=" + playlist_id);
+    //window.location = "/add_track_to_playlist?track=" + track_id + "&playlist=" + playlist_id;
   });
 });

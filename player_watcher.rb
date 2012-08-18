@@ -167,7 +167,7 @@ $pubsub.subscribe("player") do |on|
                 # Okay here we do a record scratch effect
                 sleep 0.3
                 puts "Record scratch change"
-                system("mpg123 /home/herb/git/amplifyu/system/effects/record-scratch.mp3")
+                system("mpg123 effects/record-scratch.mp3")
               end
             end
 

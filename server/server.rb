@@ -152,7 +152,7 @@ EventMachine.run do
       end
 
       while blk = tmpfile.read(65536)
-          File.open("/home/herb/git/amplifyu/system/music-library/#{name}", "wb") { |f| f.write(tmpfile.read) }
+          File.open("..//music-library/#{name}", "wb") { |f| f.write(tmpfile.read) }
       end
       
       $redis.publish('uploads', name)
@@ -211,6 +211,14 @@ EventMachine.run do
       end
     end
 
+    get '/all_playlists.json' do
+      ActiveRecord::Base.connection_pool.with_connection do
+        @playlists = Playlist.all
+
+        return @playlists.to_json
+      end
+    end
+
     get "/player" do 
       ActiveRecord::Base.connection_pool.with_connection do
         @tracks = Track.all
@@ -232,6 +240,18 @@ EventMachine.run do
 
     get "/hotkey/red" do
       $redis.publish("player", "red")     
+    end
+
+    get "/hotkey/audio1" do
+      $redis.publish("player", "audio1")     
+    end
+
+    get "/hotkey/audio2" do
+      $redis.publish("player", "audio2")     
+    end
+
+    get "/hotkey/audio3" do
+      $redis.publish("player", "audio3")     
     end
 
     get '/add_light_to_user' do
@@ -542,8 +562,14 @@ EventMachine.run do
 
         tracks = Track.where("album = '#{album}'").order('name ASC').all
 
+        return "{}" if tracks.length == 0
+
         tracks.each do |track|
+          next if (track == nil or track.name == nil or track.name[0] == nil)
+
           first_letter = track.name[0].downcase
+
+          next if first_letter == '' or first_letter.nil?
 
           alphabetized[first_letter] = [] if alphabetized[first_letter] == nil
           alphabetized[first_letter].push track.name
@@ -621,6 +647,14 @@ EventMachine.run do
         
         content_type :json
         return alphabetized.to_json
+      end
+    end
+
+    get '/all_songs.json' do
+      ActiveRecord::Base.connection_pool.with_connection do
+        @tracks = Track.order('artist DESC').all
+
+        return @tracks.to_json
       end
     end
     

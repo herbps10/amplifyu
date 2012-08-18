@@ -23,6 +23,8 @@ db_config = YAML::load(File.new("data/database.yml").read)
 
 $dmx_state = [0] * 512
 
+$change_index = 0
+
 ActiveRecord::Base.establish_connection(
   adapter: db_config['adapter'],
   user: db_config['user'],
@@ -39,7 +41,7 @@ require './data/models/dmx_channel.rb'
 require './data/models/dmx_range.rb'
 require './data/models/light.rb'
 
-$streamer = IO.popen('/home/herb/git/amplifyu/system/ola/examples/ola_streaming_client', 'w')
+$streamer = IO.popen('ola/examples/ola_streaming_client', 'w')
 
 class LightControl
   def initialize(channel_start, light)
@@ -114,19 +116,34 @@ def get_user_lights(user_id)
   return lights
 end
 
-$lights = get_user_lights(1)
+user_id = 1
 
+$lights = get_user_lights(user_id)
 
-$lights[3].send_command("strobe", 0, "shutter open")
-#$lights[3].send_command_wait("yoke course", 0, 50)
-$lights[3].send_command("color", 0, "color 7")
-#$lights[3].send_command_wait("gobo rotation", 0, 250)
+$yokes = UserLight.joins('JOIN lights ON lights.id = user_lights.light_id').where("user_id = #{user_id} AND brand = 'Coemar' AND name='iSpot'")
 
-$lights[3].send_command("gobos", 0, "gobo 5")
+$yoke1 = LightControl.new($yokes[0].start_dmx_channel, $yokes[0].light)
+$yoke2 = LightControl.new($yokes[1].start_dmx_channel, $yokes[1].light)
 
-$lights[0].send_command_wait("pod", 0, "blue")
+$sixspot = UserLight.joins('JOIN lights ON lights.id = user_lights.light_id').where("user_id = #{user_id} AND brand = 'Chauvet' AND name='6 Spot'").first
+$sixspot = LightControl.new($sixspot.start_dmx_channel, $sixspot.light)
 
-$lights[3].send_command_wait("base course", 0, 255);
+$colorbursts = UserLight.joins('JOIN lights ON lights.id = user_lights.light_id').where("user_id = #{user_id} AND brand = 'Color Kinetics' AND name='Colorburst'").limit(2)
+
+$colorbursts = [LightControl.new($colorbursts[0].start_dmx_channel, $colorbursts[0].light), LightControl.new($colorbursts[1].start_dmx_channel, $colorbursts[1].light)]
+
+$yoke1.send_command("strobe", 0, "shutter open")
+$yoke2.send_command("strobe", 0, "shutter open")
+#$yoke1.send_command_wait("yoke course", 0, 50)
+$yoke1.send_command("color", 0, "color 7")
+$yoke2.send_command("color", 0, "color 7")
+#$yoke1.send_command_wait("gobo rotation", 0, 250)
+
+$yoke1.send_command("gobos", 0, "gobo 5")
+
+$sixspot.send_command_wait("pod", 0, "blue")
+
+$yoke1.send_command_wait("base course", 0, 255);
 
 send_dmx_data
 
@@ -135,7 +152,7 @@ if false
     ["red", "green", "blue"].each do |color|
       [0, 1, 2].each do |index|
         #$lights[light].send_command_wait(color, index, rand() * 255)
-        $lights[light].send_command_wait("red", index, index * 100)
+        $colorbursts[light].send_command_wait("red", index, index * 100)
       end
       sleep rand() * 2.0
     end
@@ -155,7 +172,7 @@ def set_all_to_color(color)
   (["red", "green", "blue"] - [color]).each do |color|
     [1,2].each do |light|
       [0,1,2].each do |index|
-        $lights[light].send_command_wait(color, index, 0)
+        $colorbursts[light].send_command_wait(color, index, 0)
       end
     end
   end
@@ -163,16 +180,19 @@ def set_all_to_color(color)
 
   [1, 2].each do |light|
     [0, 1, 2].each do |index|
-      $lights[light].send_command_wait(color, index, 255)
+      $colorbursts[light].send_command_wait(color, index, 255)
     end
   end
   
   if color == "blue"
-    $lights[3].send_command("color", 0, "color 2")
+    $yoke1.send_command("color", 0, "color 2")
+    $yoke2.send_command("color", 0, "color 2")
   elsif color == "green"
-    $lights[3].send_command("color", 0, "color 5")
+    $yoke1.send_command("color", 0, "color 5")
+    $yoke2.send_command("color", 0, "color 5")
   elsif color == "red"
-    $lights[3].send_command("color", 0, "color 7")
+    $yoke1.send_command("color", 0, "color 7")
+    $yoke2.send_command("color", 0, "color 7")
   end
 end
 
@@ -216,35 +236,37 @@ $pubsub.subscribe("player", "position") do |on|
 
         section_index = 0
 
-        beat_thread.kill unless beat_thread == nil
-        beat_thread = Thread.new(track.tempo.to_f) do |bpm|
-          pause = 1.0 / (bpm / 60.0)
-          index = 0
+        if false
+          beat_thread.kill unless beat_thread == nil
+          beat_thread = Thread.new(track.tempo.to_f) do |bpm|
+            pause = 1.0 / (bpm / 60.0)
+            index = 0
 
-          while true
-            time_start = Time.now
+            while true
+              time_start = Time.now
 
-            if index >= 0 and index <= 5
-              puts "index: #{index}"
-              $lights[0].send_command_wait("pod", index, ["red", "green", "blue"].at(rand() * 3))
-              send_dmx_data
-            end
-
-            
-            if index == 6
-              5.times do |i|
-                puts i
-                $lights[0].send_command_wait("pod", i, "no_function")
+              if index >= 0 and index <= 5
+                puts "index: #{index}"
+                $sixspot.send_command_wait("pod", index, ["red", "green", "blue"].at(rand() * 3))
+                send_dmx_data
               end
-              send_dmx_data
-            end
 
-            index = (index + 1) % 7
+              
+              if index == 6
+                5.times do |i|
+                  puts i
+                  $sixspot.send_command_wait("pod", i, "no_function")
+                end
+                send_dmx_data
+              end
 
-            ActiveRecord::Base.connection.close
+              index = (index + 1) % 7
+
+              ActiveRecord::Base.connection.close
 
 
-            until (Time.now() - time_start) >= pause
+              until (Time.now() - time_start) >= pause
+              end
             end
           end
         end
@@ -289,14 +311,24 @@ $pubsub.subscribe("player", "position") do |on|
       next_start = track.duration
       next_start = sections[section_index + 1].start.to_f if section_index + 1 < sections.length
 
-      $lights[3].send_command_wait("base course", 0, yoke_positions[yoke_index][0])
-      $lights[3].send_command_wait("yoke course", 0, yoke_positions[yoke_index][1])
+      if $change_index == 0
+        $yoke1.send_command_wait("base course", 0, yoke_positions[yoke_index][0])
+        $yoke1.send_command_wait("yoke course", 0, yoke_positions[yoke_index][1])
+        $yoke1.send_command_wait("gobo rotation", 0, rand() * 100 + 255)
 
-      puts "Randomizing yoke location to #{yoke_positions[yoke_index][0]}, #{yoke_positions[yoke_index][1]}"
+        $yoke2.send_command_wait("base course", 0, yoke_positions[yoke_index][0])
+        $yoke2.send_command_wait("yoke course", 0, yoke_positions[yoke_index][1])
+        $yoke2.send_command_wait("gobo rotation", 0, rand() * 100 + 255)
+        send_dmx_data
 
-      send_dmx_data
-      
-      yoke_index = (yoke_index + 1) % 3
+        puts "Randomizing yoke location to #{yoke_positions[yoke_index][0]}, #{yoke_positions[yoke_index][1]}"
+
+        yoke_index = (yoke_index + 1) % 3
+      end
+
+      $change_index = ($change_index + 1) % 3
+
+
       
       until sections[section_index].start.to_f <= msg.to_f && next_start >= msg.to_f
         break if section_index + 1 == sections.length
@@ -309,10 +341,10 @@ $pubsub.subscribe("player", "position") do |on|
         yoke_positions = randomized_yoke_positions
 
         # Change the yoke color
-        $lights[3].send_command_wait("color", 0, ["color 1", "color 2", "color 3", "color 4", "color 5", "color 6", "color 7"].at(rand() * 7))
+        $yoke1.send_command_wait("color", 0, ["color 1", "color 2", "color 3", "color 4", "color 5", "color 6", "color 7"].at(rand() * 7))
 
         # Change the iSpot gobo
-        $lights[3].send_command_wait("gobos", 0, ["gobo 1", "gobo 2", "gobo 3", "gobo 4", "gobo 5", "gobo 6"].at(rand() * 6))
+        $yoke1.send_command_wait("gobos", 0, ["gobo 1", "gobo 2", "gobo 3", "gobo 4", "gobo 5", "gobo 6"].at(rand() * 6))
 
         send_dmx_data
 
@@ -349,7 +381,7 @@ $pubsub.subscribe("player", "position") do |on|
                   until colors["red"] * brightness >= colors["red"] and colors["green"] * brightness >= colors["green"] and colors["blue"] * brightness >= colors["blue"]
                     ["red", "green", "blue"].each do |color|
                       [0, 1, 2].each do |index|
-                        $lights[light].send_command_wait(color, index, colors[color] * brightness)
+                        $colorbursts[light].send_command_wait(color, index, colors[color] * brightness)
                       end
                     end
 
@@ -369,15 +401,17 @@ $pubsub.subscribe("player", "position") do |on|
 
 
               # Have the iSpot strobe for a second
-              Thread.new do
-                puts "Strobing the iSpot"
-                $lights[3].send_command_wait("strobe", 0, 120) # enable the strobe
-                sleep 2
-                $lights[3].send_command_wait("strobe", 0, "shutter open")
+              if track.tempo >= 120
+                Thread.new do
+                  puts "Strobing the iSpot"
+                  $yoke1.send_command_wait("strobe", 0, 120) # enable the strobe
+                  sleep 2
+                  $yoke1.send_command_wait("strobe", 0, "shutter open")
 
-                send_dmx_data
+                  send_dmx_data
 
-                ActiveRecord::Base.connection.close
+                  ActiveRecord::Base.connection.close
+                end
               end
 
             else
@@ -390,9 +424,9 @@ $pubsub.subscribe("player", "position") do |on|
                   brightness = 255
                   until brightness <= 10
                     [0, 1, 2].each do |index|
-                      $lights[light].send_command_wait("red", index, brightness)
-                      $lights[light].send_command_wait("green", index, brightness)
-                      $lights[light].send_command_wait("blue", index, brightness)
+                      $colorbursts[light].send_command_wait("red", index, brightness)
+                      $colorbursts[light].send_command_wait("green", index, brightness)
+                      $colorbursts[light].send_command_wait("blue", index, brightness)
                     end
 
                     send_dmx_data
@@ -414,7 +448,7 @@ $pubsub.subscribe("player", "position") do |on|
           end
         end
 
-        $lights[3].send_command_wait("base course", 0, rand() * 255)
+        $yoke1.send_command_wait("base course", 0, rand() * 255)
         send_dmx_data
       end
 
@@ -423,7 +457,7 @@ $pubsub.subscribe("player", "position") do |on|
 
       puts 'Loudness ' + get_avg_loudness(sections[section_index]).to_s
 
-      if get_avg_loudness(sections[section_index]) < -14
+      if get_avg_loudness(sections[section_index]) < -14 and section_index <= 1
 
         # Turn off all the lights
 
@@ -431,14 +465,15 @@ $pubsub.subscribe("player", "position") do |on|
 
         [1, 2].each do |light|
           [0, 1, 2].each do |index|
-            $lights[light].send_command_wait("red", index, 0)
-            $lights[light].send_command_wait("green", index, 0)
-            $lights[light].send_command_wait("blue", index, 0)
+            $colorbursts[light].send_command_wait("red", index, 10)
+            $colorbursts[light].send_command_wait("green", index, 10)
+            $colorbursts[light].send_command_wait("blue", index, 10)
           end
         end
 
 
-        $lights[3].send_command_wait("strobe", 0, "shutter closed")
+        $yoke1.send_command_wait("strobe", 0, "shutter closed")
+        $yoke2.send_command_wait("strobe", 0, "shutter closed")
         yoke_positions = [[120, 50]] * 3
 
         send_dmx_data
@@ -447,7 +482,8 @@ $pubsub.subscribe("player", "position") do |on|
      elsif get_avg_loudness(sections[section_index]) < -10.5
       yoke_positions = [[120, 50]] * 3
 
-      $lights[3].send_command_wait("strobe", 0, "shutter open")
+      $yoke1.send_command_wait("strobe", 0, "shutter open")
+      $yoke2.send_command_wait("strobe", 0, "shutter open")
 
       send_dmx_data
      end
@@ -458,6 +494,17 @@ $pubsub.subscribe("player", "position") do |on|
       ##
       if section_index < sections.length - 1
         if get_avg_loudness(sections[section_index]) > get_avg_loudness(sections[section_index + 1])
+          [1,2].each do |light|
+            [0, 1, 2].each do |index|
+              $colorbursts[light].send_command_wait("red", index, 0)
+            end
+          end
+
+          [1,2].each do |light|
+            [0, 1, 2].each do |index|
+              $colorbursts[light].send_command_wait("red", index, 255)
+            end
+          end
         else
           
         end

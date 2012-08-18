@@ -352,11 +352,13 @@ player = {
     },
 
     display: function() {
-      $.getJSON("/playlists.json", function(data) {
+      $.getJSON("/all_playlists.json", function(data) {
         var playlist_template = "<select class='playlist'>";
 
         $.each(data, function(index, playlist) {
-          playlist_template += "<option value='" + playlist.playlist.id + "'>" + playlist.playlist.name + "</option>";
+          if(playlist.playlist != null) {
+            playlist_template += "<option value='" + playlist.playlist.id + "'>" + playlist.playlist.name + "</option>";
+          }
         });
 
         playlist_template += "</select>";

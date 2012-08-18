@@ -30,6 +30,19 @@
 
       %input{ :type => 'submit', :value => 'Upload MP3' }
 
+  #upload-clips
+    %h2
+      Upload Audio Clips
+
+    %form{ :action => '/upload/clips', :enctype => 'multipart/form-data', :method => 'post' }
+
+      %input{ :type => 'file', :name => 'audio1' }
+      %input{ :type => 'file', :name => 'audio2' }
+      %input{ :type => 'file', :name => 'audio3' }
+
+      %input{ :type => 'submit', :value => 'Upload Audio Clips' }
+
+   
   #playlists
     %h2
       Playlists
